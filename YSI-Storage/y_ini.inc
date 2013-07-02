@@ -159,16 +159,16 @@ Operators:
 // Ini file reading is not distributed.  User file reading may be, though I
 // doubt it.
 
-#include "..\YSI-Internal\y_version"
+#include "..\YSI_Internal\y_version"
 
 //#tryinclude <sscanf>
 
-#include "..\YSI-Core\y_utils"
-#include "..\YSI-Data\y_bit"
-#include "..\YSI-Core\y_debug"
-#include "..\YSI-Coding\y_inline"
+#include "..\YSI_Core\y_utils"
+#include "..\YSI_Data\y_bit"
+#include "..\YSI_Core\y_debug"
+#include "..\YSI_Coding\y_inline"
 
-#include "..\YSI-Internal\y_natives"
+#include "..\YSI_Internal\y_natives"
 
 #define MAX_INI_LINE                    (MAX_INI_ENTRY_NAME + MAX_INI_ENTRY_TEXT + 32)
 
