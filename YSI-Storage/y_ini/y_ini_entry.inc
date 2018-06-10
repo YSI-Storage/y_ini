@@ -130,10 +130,6 @@ stock const
 	#define _Y_INI_STATIC static
 #endif
 
-#if defined YSI_TESTS && defined YSI_MOCK_READER
-	#include "..\..\YSI_Internal\y_mock"
-#endif
-
 #include "..\..\YSI_Coding\y_hooks"
 
 forward e_INI_LINE_TYPE:
