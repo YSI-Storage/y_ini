@@ -1,0 +1,9 @@
+{
+	"user": "YSI-Storage",
+	"repo": "y_ini",
+	"entry": "test.pwn",
+	"output": "test.amx",
+	"dependencies": [
+	]
+}
+
