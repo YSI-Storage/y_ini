@@ -1,3 +1,40 @@
+# y_ini
+
+Load and save INI files.  Provides multiple features including sections (aka tags, `[tag_name]`), inheritance (`[tag_name] : parent_name`), comments (`; comment`) and more.
+
+
+[![sampctl](https://shields.southcla.ws/badge/sampctl-y_ini-2f2f2f.svg?style=for-the-badge)](https://github.com/YSI-Storage/y_ini)
+
+## Installation
+
+To install just this one library:
+
+```bash
+sampctl package install YSI-Storage/y_ini
+```
+
+Include in your code and begin using the library:
+
+```pawn
+#include <YSI-Storage/y_ini>
+```
+
+## Documentation
+
+* [Quick Start](YSI-Storage/y_ini/quick-start.md) - One very simple example of getting started with this library.
+* [Features](YSI-Storage/y_ini/features.md) - More features and examples.
+* [FAQs](YSI-Storage/y_ini/faqs.md) - Frequently Asked Questions, including errors and solutions.
+* [API](YSI-Storage/y_ini/api.md) - Full list of all functions and their meaning.
+* [Internal](YSI-Storage/y_ini/internal.md) - Internal developer documentation for the system.
+
+## Testing
+
+To test, simply run the package:
+
+```bash
+sampctl package run
+```
+
 # YSI
 
 ## General Information
@@ -109,34 +146,4 @@ Libraries that have in-game visible effects.
 * [y_races](https://github.com/YSI-Visual/y_races/blob/dev/YSI-Visual/y_races.md)
 * [y_zonenames](https://github.com/YSI-Visual/y_zonenames/blob/dev/YSI-Visual/y_zonenames.md)
 * [y_zonepulse](https://github.com/YSI-Visual/y_zonepulse/blob/dev/YSI-Visual/y_zonepulse.md)
-
-# y_ini
-
-[![sampctl](https://shields.southcla.ws/badge/sampctl-y_ini-2f2f2f.svg?style=for-the-badge)](https://github.com/YSI-Storage/y_ini)
-
-## Installation
-
-To install just this one library:
-
-```bash
-sampctl package install YSI-Storage/y_ini
-```
-
-Include in your code and begin using the library:
-
-```pawn
-#include <YSI-Storage/y_ini>
-```
-
-## Usage
-
-[Click Here] (YSI-Storage/y_ini.md)
-
-## Testing
-
-To test, simply run the package:
-
-```bash
-sampctl package run
-```
 
