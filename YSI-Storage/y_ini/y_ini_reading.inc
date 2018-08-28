@@ -296,18 +296,18 @@ stock bool:INI_ParseFile(fname[], remoteFormat[], bool:bFileFirst = false, bool:
 	if (!YSI_g_sCurFile)
 		return false;
 	new
-		rlen,
 		p0s, p0e, p1s, p1e, p2s, p2e;
 	// Get just the filename.
-	YSI_g_sParentPos = strlen(fname);
-	while (YSI_g_sParentPos && fname[YSI_g_sParentPos - 1] != '/' && fname[YSI_g_sParentPos - 1] != '\\')
-		--YSI_g_sParentPos;
-	rlen = YSI_g_sParentPos;
-	while (fname[rlen] && fname[rlen] != '.')
-		++rlen;
+	p0s = strlen(fname);
+	while (p0s && fname[p0s - 1] != '/' && fname[p0s - 1] != '\\')
+		--p0s;
+	p0e = p0s;
+	while (fname[p0e] && fname[p0e] != '.')
+		++p0e;
 	file[0] = '\0';
-	strcat(file, fname[YSI_g_sParentPos], rlen - YSI_g_sParentPos + 1);
-	rlen = YSI_g_sParentPos = 0;
+	strcat(file, fname[p0s], p0e - p0s + 1);
+	new
+		rlen = YSI_g_sParentPos = 0;
 	P:5("INI_ParseFile: Opened.");
 	bLocal = !bLocal, // Invert for "remote".
 	INI_MakeCallbackFormat(bExtra, bPassTag, bPassFile, cbSpec),
