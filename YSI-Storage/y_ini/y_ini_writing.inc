@@ -100,7 +100,6 @@ enum E_INI_TAGS
 }
 
 _Y_INI_STATIC stock
-	YSI_g_sINITmpBuffer[36],
 	YSI_g_sINIWriteBuffer[INI_MAX_WRITES * INI_BUFFER_SIZE][E_INI_KV_ENTRY],
 	YSI_g_sINIWritePos, // Pointer to the first free K/V slot.
 	YSI_g_sINITagPos,   // Pointer to the first free tag slot.
@@ -335,8 +334,8 @@ stock INI_WriteInt(INI:file, name[], data)
 	else
 	{
 		return
-			format(YSI_g_sINITmpBuffer, sizeof (YSI_g_sINITmpBuffer), "%d", data),
-			INI_AddToBuffer(file, name, YSI_g_sINITmpBuffer);
+			format(Q@, sizeof (Q@), "%d", data),
+			INI_AddToBuffer(file, name, Q@);
 	}
 }
 
@@ -353,8 +352,8 @@ stock INI_WriteHex(INI:file, name[], data)
 {
 	P:3("INI_WriteHex called: %i, \"%s\", %i", _:file, name, data);
 	return
-		format(YSI_g_sINITmpBuffer, sizeof (YSI_g_sINITmpBuffer), "0x%04x%04x", data >>> 16, data & 0xFFFF),
-		INI_AddToBuffer(file, name, YSI_g_sINITmpBuffer);
+		format(Q@, sizeof (Q@), "0x%04x%04x", data >>> 16, data & 0xFFFF),
+		INI_AddToBuffer(file, name, Q@);
 }
 
 /*-------------------------------------------------------------------------*//**
@@ -369,9 +368,9 @@ stock INI_WriteHex(INI:file, name[], data)
 stock INI_WriteBin(INI:file, name[], data)
 {
 	P:3("INI_WriteBin called: %i, \"%s\", %i", _:file, name, data);
-	if (data < 0) format(YSI_g_sINITmpBuffer, sizeof (YSI_g_sINITmpBuffer), "0b1%031b", data & 0x7FFFFFFF);
-	else format(YSI_g_sINITmpBuffer, sizeof (YSI_g_sINITmpBuffer), "0b%b", data);
-	return INI_AddToBuffer(file, name, YSI_g_sINITmpBuffer);
+	if (data < 0) format(Q@, sizeof (Q@), "0b1%031b", data & 0x7FFFFFFF);
+	else format(Q@, sizeof (Q@), "0b%b", data);
+	return INI_AddToBuffer(file, name, Q@);
 }
 
 /*-------------------------------------------------------------------------*//**
@@ -403,8 +402,8 @@ stock INI_WriteFloat(INI:file, name[], Float:data, accuracy = 6)
 {
 	P:3("INI_WriteFloat called: %i, \"%s\", %f, %i", _:file, name, data, accuracy);
 	return
-		format(YSI_g_sINITmpBuffer, sizeof (YSI_g_sINITmpBuffer), "%.*f", accuracy, data),
-		INI_AddToBuffer(file, name, YSI_g_sINITmpBuffer);
+		format(Q@, sizeof (Q@), "%.*f", accuracy, data),
+		INI_AddToBuffer(file, name, Q@);
 }
 
 /*
