@@ -127,7 +127,12 @@ _Y_INI_STATIC stock
 	YSI_g_sINIWriteFile[INI:INI_MAX_WRITES][64],
 	// Linked list of "ENTRIES, NEXT, REMOVED, NAME".
 	Alloc:YSI_g_sINITagBuffer[INI:INI_MAX_WRITES],
-	Alloc:YSI_g_sINICurrentTag[INI:INI_MAX_WRITES];
+	Alloc:YSI_g_sINICurrentTag[INI:INI_MAX_WRITES],
+	// The data being dumped.
+	Alloc:YSI_g_sCurrentTag,
+	INI:YSI_g_sCurrentINI,
+	File:YSI_g_sCurrentFile,
+	bool:YSI_g_sNL;
 
 /*
 
@@ -284,12 +289,10 @@ P:D(INI_GetCallback(callback,format,tag,input,callbackFormat,remote));
 
 */
 
-static stock Alloc:INI_GetTag(INI:file, const tag[])
+static stock Alloc:INI_GetTag(Alloc:cur, const tag[])
 {
 	if (tag[0])
 	{
-		new
-			Alloc:cur = YSI_g_sINITagBuffer[file];
 		while (cur)
 		{
 			if (!strcmp(tag, mget(cur, 3)))
@@ -303,8 +306,6 @@ static stock Alloc:INI_GetTag(INI:file, const tag[])
 	else
 	{
 		// Blank (no) tag.
-		new
-			Alloc:cur = YSI_g_sINITagBuffer[file];
 		while (cur)
 		{
 			if (!mget(cur, 3))
@@ -317,19 +318,18 @@ static stock Alloc:INI_GetTag(INI:file, const tag[])
 	}
 }
 
-static stock Alloc:INI_GetKey(INI:file, const key[], &Alloc:prev)
+static stock Alloc:INI_GetKey(Alloc:cur, const key[], &Alloc:prev)
 {
-	prev = YSI_g_sINICurrentTag[file];
-	new
-		Alloc:cur = Alloc:mget(prev, 0);
-	while (cur)
+	for ( ; ; )
 	{
+		prev = cur,
+		cur = Alloc:mget(prev, 0);
+		if (!cur)
+			break;
 		if (!strcmp(key, mget(cur, 2)))
 		{
 			return cur;
 		}
-		prev = cur;
-		cur = Alloc:mget(prev, 0);
 	}
 	return NO_ALLOC;
 }
@@ -356,7 +356,7 @@ _Y_INI_STATIC stock bool:INI_AddToBuffer(INI:file, const key[], const value[])
 	if (strfind(key, " ") != -1)
 	{
 		P:E("INI key \"%s\" must not contain spaces", key);
-		return;
+		return false;
 	}
 	if (INI_IsValid(file) && key[0])
 	{
@@ -368,7 +368,7 @@ _Y_INI_STATIC stock bool:INI_AddToBuffer(INI:file, const key[], const value[])
 		new
 			len = strlen(key) + strlen(value) + 4, // 2 * NULL + next + keylen.
 			Alloc:prev,
-			Alloc:mem = INI_GetKey(file, key, prev);
+			Alloc:mem = INI_GetKey(YSI_g_sINICurrentTag[file], key, prev);
 		if (mem)
 		{
 			// We already wrote this value.  Can we change it?
@@ -401,7 +401,7 @@ _Y_INI_STATIC stock bool:INI_AddToBuffer(INI:file, const key[], const value[])
 				return true;
 			}
 			// Try again.
-			INI_FlushWithRestore();
+			INI_FlushWithRestore(file);
 		}
 	}
 	return false;
@@ -545,6 +545,7 @@ stock bool:INI_ParseFile(fname[], remoteFormat[], bool:bFileFirst = false, bool:
 		}
 	}
 	INI_ReadFile(fhnd, parent);
+	fclose(fhnd);
 	return true;
 }
 
@@ -586,7 +587,7 @@ stock _INI_Array(const name[], len, ...)
 		offset = 0,
 		packed[YSI_MAX_STRING char],
 		p0s, p0e, p1s, p1e, p2s, p2e;
-	while ((rlen = fread(YSI_g_sCurFile, YSI_g_sCurLine)))
+	while ((rlen = fread(YSI_g_sCurrentFile, YSI_g_sCurLine)))
 	{
 		switch (INI_IdentifyLineType(YSI_g_sCurLine, p0s, p0e, p1s, p1e, p2s, p2e))
 		{
@@ -653,7 +654,7 @@ stock _INI_Array(const name[], len, ...)
 	if (len)
 		P:W("Incomplete array data in INI file for \"%s\"", name);
 	// Reparse the previous line.
-	fseek(YSI_g_sCurFile, YSI_g_sParentPos, seek_start);
+	fseek(YSI_g_sCurrentFile, YSI_g_sParentPos, seek_start);
 	return 0;
 }
 
@@ -734,7 +735,7 @@ stock bool:INI_SetTag(INI:file, const tag[])
 	{
 		// Loop through the tags for this file.
 		new
-			Alloc:cur = INI_GetTag(file, tag);
+			Alloc:cur = INI_GetTag(YSI_g_sINITagBuffer[file], tag);
 		if (cur)
 		{
 			YSI_g_sINICurrentTag[file] = cur;
@@ -746,7 +747,7 @@ stock bool:INI_SetTag(INI:file, const tag[])
 			cur = malloc(strlen(tag) + 4);
 			if (cur)
 			{
-				mset(cur, 0, YSI_g_sINIStartTag[file]),
+				mset(cur, 0, YSI_g_sINITagBuffer[file]),
 				YSI_g_sINITagBuffer[file] = cur,
 				YSI_g_sINICurrentTag[file] = cur,
 				mset(cur, 1, 0),
@@ -1381,24 +1382,46 @@ static stock INI_HandleEntry(const key[], const value[]) <y_ini:y_ini_writing_sl
 {
 	// Used when reading.  Checks if the key is being overwritten, and if not
 	// writes it out to the new file.
-
-	// Write a new line if needed.
-
-	// Write the entry.
-
-	#pragma unused key, value
+	if (YSI_g_sNL)
+	{
+		// Write a new line if needed.
+		fwrite(YSI_g_sCurrentFile, "\n");
+	}
+	new
+		Alloc:prev,
+		Alloc:mem = INI_GetKey(YSI_g_sCurrentTag, key, prev);
+	if (mem)
+	{
+		// Remove this from the list.
+		mset(prev, 0, mget(mem, 0)),
+		mset(mem, mget(mem, 1), '='),
+		fwrite(YSI_g_sCurrentFile, mget(mem, 2)),
+		free(mem);
+	}
+	else
+	{
+		// Write the entry.
+		fwrite(YSI_g_sCurrentFile, key),
+		fwrite(YSI_g_sCurrentFile, "="),
+		fwrite(YSI_g_sCurrentFile, value);
+	}
+	YSI_g_sNL = true;
 }
 
 static stock INI_HandleEntry(const key[], const value[]) <y_ini:y_ini_writing_fast>
 {
 	// Nothing in the current tag is being overwritten, just dump this
 	// key/value pair straight to disk with no extra checks.
-
-	// Write a new line if needed.
-
+	if (YSI_g_sNL)
+	{
+		// Write a new line if needed.
+		fwrite(YSI_g_sCurrentFile, "\n");
+	}
 	// Write the entry.
-
-	#pragma unused key, value
+	fwrite(YSI_g_sCurrentFile, key),
+	fwrite(YSI_g_sCurrentFile, "="),
+	fwrite(YSI_g_sCurrentFile, value),
+	YSI_g_sNL = true;
 }
 
 /*-------------------------------------------------------------------------*//**
@@ -1433,14 +1456,88 @@ static stock INI_HandleComment(const comment[]) <>
  * </remarks>
  *//*------------------------------------------------------------------------**/
 
+static stock INI_DumpTag(Alloc:dump)
+{
+	if (dump)
+	{
+		// We were writing a known tag.
+		new
+			Alloc:next = Alloc:mget(dump, 0);
+		mset(dump, 0, NO_ALLOC);
+		while (next)
+		{
+			// Write a new line if needed.
+			if (YSI_g_sNL)
+			{
+				fwrite(YSI_g_sCurrentFile, "\n");
+			}
+			// Insert the `=`.
+			dump = next,
+			mset(dump, mget(dump, 1), '='),
+			fwrite(YSI_g_sCurrentFile, mget(dump, 2)),
+			next = Alloc:mget(dump, 0),
+			free(dump),
+			YSI_g_sNL = true;
+		}
+	}
+}
+
+static stock bool:INI_FreeTag(Alloc:dump)
+{
+	if (mget(dump, 2))
+	{
+		new
+			Alloc:next = mget(dump, 0);
+		mset(dump, 0, NO_ALLOC);
+		// This tag is deleted - ignore it entirely.
+		while (next)
+		{
+			dump = next,
+			next = Alloc:mget(dump, 0),
+			free(dump);
+		}
+		return true;
+	}
+	return false;
+}
+
 static stock INI_HandleTag(const tag[]) <y_ini:y_ini_writing_fast, y_ini:y_ini_writing_slow>
 {
 	// Quickly dump any not written data.  Everything left has no written
 	// equivalent, so there's no need to do the slow comparison method.
-	// Write a new line if needed.
-	// Write the tag.
+	INI_DumpTag(YSI_g_sCurrentTag),
 	// Determine if we have new data for the current tag or not.
-	#pragma unused tag
+	YSI_g_sCurrentTag = INI_GetTag(YSI_g_sINITagBuffer[YSI_g_sCurrentINI], tag);
+	if (YSI_g_sCurrentTag)
+	{
+		if (INI_FreeTag(YSI_g_sCurrentTag))
+		{
+			YSI_g_sCurrentTag = NO_ALLOC;
+			return 0;
+		}
+		else if (mget(YSI_g_sCurrentTag, 0))
+		{
+			// Slightly slower, as for every key we need to check if there is a
+			// new value being written.
+			state y_ini:y_ini_writing_slow;
+		}
+		else
+		{
+			// Nothing to write, just copy all the existing data.
+			YSI_g_sCurrentTag = NO_ALLOC;
+			state y_ini:y_ini_writing_fast;
+		}
+	}
+	// Write the tag.
+	if (YSI_g_sNL)
+	{
+		fwrite(YSI_g_sCurrentFile, "\n");
+	}
+	// TODO: Write parent.
+	fwrite(YSI_g_sCurrentFile, "["),
+	fwrite(YSI_g_sCurrentFile, tag),
+	fwrite(YSI_g_sCurrentFile, "]"),
+	YSI_g_sNL = true;
 	// Parse this tag, but not its parents.
 	return 1;
 }
@@ -1527,10 +1624,30 @@ static stock INI_FindCallback(const cb[]) <>
 
 static stock INI_HandleEnd() <y_ini:y_ini_writing_fast, y_ini:y_ini_writing_slow>
 {
-	// Dump everything remaining from this tag, and everything remaining from
-	// all other tags that haven't been dealt with yet.
-
-	// Clean up - release/clear resources.
+	// Dump the remaining data.
+	new
+		Alloc:tag,
+		Alloc:next = YSI_g_sINITagBuffer[YSI_g_sCurrentINI];
+	while (next)
+	{
+		tag = next;
+		if (!INI_FreeTag(tag) && mget(tag, 0))
+		{
+			if (YSI_g_sNL)
+			{
+				fwrite(YSI_g_sCurrentFile, "\n");
+			}
+			fwrite(YSI_g_sCurrentFile, "["),
+			fwrite(YSI_g_sCurrentFile, mget(tag, 3));
+			fwrite(YSI_g_sCurrentFile, "]"),
+			YSI_g_sNL = true,
+			INI_DumpTag(tag);
+		}
+		next = Alloc:mget(tag, 0),
+		free(tag);
+	}
+	YSI_g_sINITagBuffer[YSI_g_sCurrentINI] = NO_ALLOC,
+	fwrite(YSI_g_sCurrentFile, "\n\n");
 }
 
 static stock INI_HandleEnd() <>
@@ -1578,7 +1695,43 @@ static stock INI_HandleEnd() <>
 
 static stock INI_Flush_(INI:file)
 {
+	YSI_g_sCurrentFile = fopen("MY_TEMP.ini", io_write);
+	if (!YSI_g_sCurrentFile)
+	{
+		return;
+	}
+	state y_ini:y_ini_writing_fast;
 	// Parse the file, writing as we go.
+	YSI_g_sCurrentTag = INI_GetTag(YSI_g_sINITagBuffer[YSI_g_sCurrentINI], "");
+	if (YSI_g_sCurrentTag)
+	{
+		// You can't delete the no-tag tag.
+		if (mget(YSI_g_sCurrentTag, 0))
+		{
+			// Slightly slower, as for every key we need to check if there is a
+			// new value being written.
+			state y_ini:y_ini_writing_slow;
+		}
+		else
+		{
+			// Nothing to write, just copy all the existing data.
+			YSI_g_sCurrentTag = NO_ALLOC;
+		}
+	}
+	YSI_g_sCurrentINI = file;
+	new
+		File:fhnd = fopen(YSI_g_sINIWriteFile[file], io_read);
+	if (!fhnd)
+	{
+		// Dump the file.
+		INI_HandleEnd();
+		fclose(YSI_g_sCurrentFile);
+		return;
+	}
+	// Now parse the file.
+	INI_ReadFile(fhnd, "");
+	fclose(YSI_g_sCurrentFile);
+	fclose(fhnd);
 }
 
 static stock INI_FlushWithRestore(INI:file)
