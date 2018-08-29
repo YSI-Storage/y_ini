@@ -94,6 +94,14 @@ enum e_INI_LINE_TYPE:
 	e_INI_LINE_TYPE_TAG
 }
 
+//enum E_INI_TAGS
+//{
+//	E_INI_TAGS_NAME[MAX_INI_TAG char],
+//	E_INI_TAGS_NEXT,
+//	Alloc:E_INI_TAGS_START,
+//}
+
+// Variables for reading.
 _Y_INI_STATIC stock
 	Alloc:YSI_g_sExtendedLine,
 	YSI_g_sExtendedName[MAX_INI_ENTRY_NAME],
@@ -104,6 +112,7 @@ _Y_INI_STATIC stock
 	bool:YSI_g_sRemote,
 	YSI_g_sCurLine[MAX_INI_LINE];
 
+// Variables for callbacks.
 static stock
 	Func:YSI_g_sCB_issss<issss>,
 	Func:YSI_g_sCB_isss<isss>,
@@ -111,6 +120,14 @@ static stock
 	Func:YSI_g_sCB_ssss<ssss>,
 	Func:YSI_g_sCB_sss<sss>,
 	Func:YSI_g_sCB_ss<ss>;
+
+// Variables for writing.
+_Y_INI_STATIC stock
+	// The file names.
+	YSI_g_sINIWriteFile[INI:INI_MAX_WRITES][64],
+	// Linked list of "ENTRIES, NEXT, REMOVED, NAME".
+	Alloc:YSI_g_sINITagBuffer[INI:INI_MAX_WRITES],
+	Alloc:YSI_g_sINICurrentTag[INI:INI_MAX_WRITES];
 
 /*
 
@@ -124,6 +141,8 @@ static stock
     88     `8'     88 `"8bbdP"Y8  `"Ybbd8"' 88          `"YbbdP"'  `"YbbdP"'  
 
 */
+
+#define INI_IsValid(%0) (0 <= _:(%0) < INI_MAX_WRITES && YSI_g_sINITagBuffer[(%0)])
 
 #define INI_Parse(%1,%2) \
 	forward @INI_%1_%2(name[], value[]); \
@@ -251,6 +270,52 @@ P:D(INI_GetCallback(callback,format,tag,input,callbackFormat,remote));
 		format(YSI_g_sCurLine, sizeof (YSI_g_sCurLine), (%1), (%2)), \
 		Callback_Get(callback_tag:YSI_g_sCurLine, (%0), (%4), (%5)) \
 	)
+
+/*
+
+    88                                                                88  
+    88              ,d                                                88  
+    88              88                                                88  
+    88 8b,dPPYba, MM88MMM ,adPPYba, 8b,dPPYba, 8b,dPPYba,  ,adPPYYba, 88  
+    88 88P'   `"8a  88   a8P_____88 88P'   "Y8 88P'   `"8a ""     `Y8 88  
+    88 88       88  88   8PP""""""" 88         88       88 ,adPPPPP88 88  
+    88 88       88  88,  "8b,   ,aa 88         88       88 88,    ,88 88  
+    88 88       88  "Y888 `"Ybbd8"' 88         88       88 `"8bbdP"Y8 88  
+
+*/
+
+static stock Alloc:INI_GetTag(INI:file, const tag[])
+{
+	if (tag[0])
+	{
+		new
+			Alloc:cur = YSI_g_sINITagBuffer[file];
+		while (cur)
+		{
+			if (!strcmp(tag, mget(cur, 3)))
+			{
+				return cur;
+			}
+			cur = Alloc:mget(cur, 1);
+		}
+		return NO_ALLOC;
+	}
+	else
+	{
+		// Blank (no) tag.
+		new
+			Alloc:cur = YSI_g_sINITagBuffer[file];
+		while (cur)
+		{
+			if (!mget(cur, 3))
+			{
+				return cur;
+			}
+			cur = Alloc:mget(cur, 1);
+		}
+		return NO_ALLOC;
+	}
+}
 
 /*
 
@@ -411,6 +476,234 @@ stock bool:INI_Load(filename[], bool:bExtra = false, extra = 0, bool:bLocal = tr
 {
 	P:3("bool:INI_Load called: \"%s\", %i, %i, %i", filename, _:bExtra, extra, _:bLocal);
 	return INI_ParseFile(filename, "@INI_%s_%s", .bFileFirst = true, .bExtra = bExtra, .extra = extra, .bLocal = bLocal);
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="name">Name of the INI key.</param>
+ * <param name="len">Size of the data in the file.</param>
+ * <param name="">Variable to fill with array value.</param>
+ *//*------------------------------------------------------------------------**/
+
+stock _INI_Array(const name[], len, ...)
+{
+	// Load an array from the file, putting the data directly in to the
+	// desired memory storage location.
+	// 
+	// Continue reading through the file.  Since this code is now in y_ini, we
+	// can guarantee that the data will be in order in the file.
+	new
+		rlen,
+		offset = 0,
+		packed[YSI_MAX_STRING char],
+		p0s, p0e, p1s, p1e, p2s, p2e;
+	while ((rlen = fread(YSI_g_sCurFile, YSI_g_sCurLine)))
+	{
+		switch (INI_IdentifyLineType(YSI_g_sCurLine, p0s, p0e, p1s, p1e, p2s, p2e))
+		{
+			case e_INI_LINE_TYPE_INVALID:
+			{
+				P:W("Invalid line in INI file: %s", YSI_g_sCurLine);
+			}
+			case e_INI_LINE_TYPE_DATALESS:
+			{
+				// Do nothing.
+			}
+			case e_INI_LINE_TYPE_TAG:
+			{
+				break;
+			}
+			case e_INI_LINE_TYPE_CONT:
+			{
+				// Do nothing, wait for the rest of the line.
+			}
+			case e_INI_LINE_TYPE_ENTRY:
+			{
+				if (YSI_g_sExtendedLine)
+				{
+					if (Malloc_Get(YSI_g_sExtendedLine, 1) == '@')
+					{
+						P:E("Binary arrays cannot use continuation lines.");
+					}
+					free(YSI_g_sExtendedLine),
+					YSI_g_sExtendedLine = NO_ALLOC,
+					YSI_g_sExtendedName[0] = '\0';
+					break;
+				}
+				// Read lines starting with `@` here.  They indicate packed
+				// array data, which is only read by using `INI_Array`.
+				if (YSI_g_sCurLine[p0s] != '@')
+					break;
+				YSI_g_sCurLine[p0e] = '\0';
+				if (YSI_g_sCurLine[p0s + 1] == '@')
+				{
+					if (strcmp(YSI_g_sCurLine[p0s + 2], name))
+						break;
+					// Old-style packed arrays.  Used a double `@` prefix and a
+					// custom packing system.
+					
+				}
+				else
+				{
+					if (strcmp(YSI_g_sCurLine[p0s + 1], name))
+						break;
+					// Base 64 encoded data.
+					YSI_g_sCurLine[p1e] = '\0',
+					strpack(packed, YSI_g_sCurLine[p1s]),
+					p2e = Base64Decode(argderef(2), packed, len, offset),
+					len -= p2e,
+					offset += p2e;
+				}
+				// Move on.
+				YSI_g_sParentPos += rlen;
+				if (!len)
+					return 0;
+			}
+		}
+	}
+	if (len)
+		P:W("Incomplete array data in INI file for \"%s\"", name);
+	// Reparse the previous line.
+	fseek(YSI_g_sCurFile, YSI_g_sParentPos, seek_start);
+	return 0;
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="filename">INI file to open.</param>
+ * <returns>
+ *  INI - handle to the file or INI_NO_FILE.
+ * </returns>
+ * <remarks>
+ *  Doesn't actually open the file, just starts a new buffer if possible.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+stock INI:INI_Open(const filename[])
+{
+	P:3("INI:INI_Open called: \"%s\"", filename);
+	if (ftouch(filename) == -1)
+	{
+		P:W("INI_Open could not find or create file %s", filename);
+	}
+	new
+		INI:i;
+	while (i != INI:INI_MAX_WRITES && YSI_g_sINITagBuffer[i])
+	{
+		++i;
+	}
+	if (i == INI:INI_MAX_WRITES)
+	{
+		return INI_NO_FILE;
+	}
+	return
+		strcpy(YSI_g_sINIWriteFile[i], filename, YSI_MAX_STRING),
+		// Reset tags.
+		YSI_g_sINICurrentTag[i] = NO_ALLOC,
+		INI_SetTag(i, ""),
+		i;
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">Handle to the ini to close.</param>
+ * <remarks>
+ *  Writes any outstanding buffer data to the file and ends the stream.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+stock INI_Close(INI:file)
+{
+	P:3("INI_Close called: %i", _:file);
+	if (INI_IsValid(file))
+	{
+		INI_FlushWithoutRestore(file),
+		YSI_g_sINITagBuffer[file] = NO_ALLOC,
+	}
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">INI file handle to write to.</param>
+ * <param name="tag">Name of the new file subsection for subsequent data to write to.</param>
+ * <remarks>
+ *  Sets a new [tag] section header.  Subsequent data is written under this
+ *  header.  Uses lists for constant tag switching and checks the tag doesn't
+ *  already exist.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+stock bool:INI_SetTag(INI:file, const tag[])
+{
+	P:3("INI_SetTag called: %i, \"%s\"", _:file, tag);
+	if (strfind(tag, " ") != -1)
+	{
+		P:E("INI tag \"%s\" must not contain spaces", tag);
+		if (INI_IsValid(file))
+		{
+			YSI_g_sINICurrentTag[file] = NO_ALLOC;
+		}
+	}
+	else if (INI_IsValid(file))
+	{
+		// Loop through the tags for this file.
+		new
+			Alloc:cur = INI_GetTag(file, tag);
+		if (cur)
+		{
+			YSI_g_sINICurrentTag[file] = cur;
+			return true;
+		}
+		for ( ; ; )
+		{
+			// Allocate a new tag.
+			cur = malloc(strlen(tag) + 4);
+			if (cur)
+			{
+				mset(cur, 0, YSI_g_sINIStartTag[file]),
+				YSI_g_sINITagBuffer[file] = cur,
+				YSI_g_sINICurrentTag[file] = cur,
+				mset(cur, 1, 0),
+				mset(cur, 2, 0),
+				msets(cur, 3, tag);
+				return true;
+			}
+			// Allocating a new tag failed.  Clear memory and try again.  When
+			// flushing, don't restore the current tag, since we're about to
+			// write a new one.
+			INI_FlushWithoutRestore(file);
+		}
+	}
+	return false;
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">INI file handle to write to.</param>
+ * <param name="tag">Name of the whole section to delete.</param>
+ * <remarks>
+ *  Removes a [tag] section from a file.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+stock bool:INI_DeleteTag(INI:file, const tag[])
+{
+	if (INI_SetTag(file, tag))
+	{
+		// A setting of `tag[2] = true;` means "deleted".
+		mset(YSI_g_sINICurrentTag[file], 2, 1);
+		return true;
+	}
+	return false;
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">File to write to.</param>
+ * <param name="name">Item to remove.</param>
+ * <remarks>
+ *  Wrapper for INI_AddToBuffer for removing data.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+stock INI_RemoveEntry(INI:file, name[])
+{
+	P:3("INI_RemoveEntry called: %i, \"%s\"", _:file, name);
+	return INI_AddToBuffer(file, name, NULL);
 }
 
 /*
@@ -690,6 +983,130 @@ state_in_continuation:
 
 /*
 
+    I8,        8        ,8I          88         88                          
+    `8b       d8b       d8'          ""   ,d    ""                          
+     "8,     ,8"8,     ,8"                88                                
+      Y8     8P Y8     8P 8b,dPPYba, 88 MM88MMM 88 8b,dPPYba,   ,adPPYb,d8  
+      `8b   d8' `8b   d8' 88P'   "Y8 88   88    88 88P'   `"8a a8"    `Y88  
+       `8a a8'   `8a a8'  88         88   88    88 88       88 8b       88  
+        `8a8'     `8a8'   88         88   88,   88 88       88 "8a,   ,d88  
+         `8'       `8'    88         88   "Y888 88 88       88  `"YbbdP"Y8  
+                                                                aa,    ,88  
+                                                                 "Y8bbdP"   
+
+*/
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">File to write to.</param>
+ * <param name="name">Data name.</param>
+ * <param name="data">Data.</param>
+ * <remarks>
+ *  Wrapper for INI_AddToBuffer for strings.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+stock INI_WriteString(INI:file, const name[], const data[])
+{
+	P:3("INI_WriteString called: %i, \"%s\", \"%s\"", _:file, name, data);
+	return INI_AddToBuffer(file, name, data);
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">File to write to.</param>
+ * <param name="name">Data name.</param>
+ * <param name="data">Integer data.</param>
+ * <remarks>
+ *  Wrapper for INI_AddToBuffer for integers.  Fixed for very large numbers
+ *  based on code by Slice from "fixes.inc" for "valstr".
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+stock INI_WriteInt(INI:file, const name[], data)
+{
+	P:3("INI_WriteInt called: %i, \"%s\", %i", _:file, name, data);
+	static const
+		sc_szCellmin[] = "-2147483648";
+	if (data == cellmin)
+	{
+		return INI_AddToBuffer(file, name, sc_szCellmin);
+	}
+	else
+	{
+		return
+			format(Q@, sizeof (Q@), "%d", data),
+			INI_AddToBuffer(file, name, Q@);
+	}
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">File to write to.</param>
+ * <param name="name">Data name.</param>
+ * <param name="data">Hex data.</param>
+ * <remarks>
+ *  Wrapper for INI_AddToBuffer for integers to be written as hex values.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+stock INI_WriteHex(INI:file, const name[], data)
+{
+	P:3("INI_WriteHex called: %i, \"%s\", %i", _:file, name, data);
+	return
+		format(Q@, sizeof (Q@), "0x%04x%04x", data >>> 16, data & 0xFFFF),
+		INI_AddToBuffer(file, name, Q@);
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">File to write to.</param>
+ * <param name="name">Data name.</param>
+ * <param name="data">Binary data.</param>
+ * <remarks>
+ *  Wrapper for INI_AddToBuffer for integers to be written as binary values.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+stock INI_WriteBin(INI:file, const name[], data)
+{
+	P:3("INI_WriteBin called: %i, \"%s\", %i", _:file, name, data);
+	if (data < 0) format(Q@, sizeof (Q@), "0b1%031b", data & 0x7FFFFFFF);
+	else format(Q@, sizeof (Q@), "0b%b", data);
+	return INI_AddToBuffer(file, name, Q@);
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">File to write to.</param>
+ * <param name="name">Data name.</param>
+ * <param name="data">Boolean data.</param>
+ * <remarks>
+ *  Wrapper for INI_AddToBuffer for booleans.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+stock INI_WriteBool(INI:file, const name[], bool:data)
+{
+	P:3("INI_WriteBool called: %i, \"%s\", %i", _:file, name, _:data);
+	return INI_AddToBuffer(file, name, data ? ("true") : ("false"));
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">File to write to.</param>
+ * <param name="name">Data name.</param>
+ * <param name="data">Float data.</param>
+ * <param name="accuracy">number of decimal places to write.</param>
+ * <remarks>
+ *  Wrapper for INI_AddToBuffer for floats.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+stock INI_WriteFloat(INI:file, const name[], Float:data, accuracy = 6)
+{
+	P:3("INI_WriteFloat called: %i, \"%s\", %f, %i", _:file, name, data, accuracy);
+	return
+		format(Q@, sizeof (Q@), "%.*f", accuracy, data),
+		INI_AddToBuffer(file, name, Q@);
+}
+
+/*
+
     88                                                                88  
     88              ,d                                                88  
     88              88                                                88  
@@ -945,11 +1362,13 @@ static stock INI_HandleTag(const tag[]) <
 	y_ini:y_ini_reading_ynny, y_ini:y_ini_reading_ynnn>
 {
 	new
+		pos = -1,
 		cb[32];
-	return
-		strcpy(YSI_g_sTag, tag),
-		format(cb, sizeof (cb), YSI_g_sFormat, YSI_g_sFile, tag),
-		INI_FindCallback(cb);
+	strcpy(YSI_g_sTag, tag),
+	format(cb, sizeof (cb), YSI_g_sFormat, YSI_g_sFile, tag);
+	while ((pos = strfind(cb, " ", false, pos + 1)) != -1)
+		cb[pos] = '_';
+	return INI_FindCallback(cb);
 }
 
 static stock INI_HandleTag(const tag[]) <
@@ -959,11 +1378,13 @@ static stock INI_HandleTag(const tag[]) <
 	y_ini:y_ini_reading_nnny, y_ini:y_ini_reading_nnnn>
 {
 	new
+		pos = -1,
 		cb[32];
-	return
-		strcpy(YSI_g_sTag, tag),
-		format(cb, sizeof (cb), YSI_g_sFormat, tag, YSI_g_sFile),
-		INI_FindCallback(cb);
+	strcpy(YSI_g_sTag, tag),
+	format(cb, sizeof (cb), YSI_g_sFormat, tag, YSI_g_sFile);
+	while ((pos = strfind(cb, " ", false, pos + 1)) != -1)
+		cb[pos] = '_';
+	return INI_FindCallback(cb);
 }
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_yyyy, y_ini:y_ini_reading_nyyy>
@@ -1055,5 +1476,108 @@ static stock INI_HandleEnd() <>
 		Indirect_Release(YSI_g_sCB_ss),
 		YSI_g_sCB_ss = Func:0<ss>;
 	}
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">INI file to write to.</param>
+ * <param name="name">Data name to write.</param>
+ * <param name="data">Data to write.</param>
+ * <returns>
+ *  The slot written to, or -1 on failure.
+ * </returns>
+ * <remarks>
+ *  First checks the name doesn't already exist under the current tag header
+ *  and if it does overwrites the current value.  If not checks there's room
+ *  in the buffer to write to and purges the buffer if not.  Finally saves the
+ *  data in the buffer for writing when required and adds the data to the
+ *  relevant list for tag inclusion.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+_Y_INI_STATIC stock INI_AddToBuffer(INI:file, const key[], const value[])
+{
+	P:4("INI_AddToBuffer called: %i, \"%s\", \"%s\"", _:file, key, value);
+	if (strfind(value, " ") != -1)
+	{
+		P:E("INI key \"%s\" must not contain spaces", key);
+		return;
+	}
+	if (INI_IsValid(file) && key[0])
+	{
+		// Get the current tag.
+		new
+			curTag = YSI_g_sINICurrentTag[file];
+		if (curTag == -1) curTag = INI_SetTag(file, INI_NO_TAG);
+		else
+		{
+			// Find if this entry already exists.
+			new
+				curSlot = YSI_g_sINITagBuffer[curTag][E_INI_TAGS_START];
+			if (curSlot == cellmax) return -1; // Deleted tag, don't save.
+			else while (curSlot != -1)
+			{
+				if (!strcmp(key, YSI_g_sINIWriteBuffer[curSlot][E_INI_KV_ENTRY_NAME], true))
+				{
+					return
+						strcpy(YSI_g_sINIWriteBuffer[curSlot][E_INI_KV_ENTRY_TEXT], value, MAX_INI_ENTRY_TEXT),
+						curSlot;
+				}
+				curSlot = YSI_g_sINIWriteBuffer[curSlot][E_INI_KV_ENTRY_NEXT];
+			}
+		}
+		// Get a new slot.
+		if (YSI_g_sINIWritePos == -1)
+		{
+			// Free up some space.
+			if (!INI_Flush()) return -1;
+			curTag = YSI_g_sINICurrentTag[file];
+		}
+		// Get a free slot in the system.
+		new
+			newSlot = YSI_g_sINIWritePos;
+		YSI_g_sINIWritePos = YSI_g_sINIWriteBuffer[YSI_g_sINIWritePos][E_INI_KV_ENTRY_NEXT],
+		YSI_g_sINIWriteBuffer[newSlot][E_INI_KV_ENTRY_NEXT] = YSI_g_sINITagBuffer[curTag][E_INI_TAGS_START],
+		YSI_g_sINITagBuffer[curTag][E_INI_TAGS_START] = newSlot;
+		// Now write to it.
+		return
+			strcpy(YSI_g_sINIWriteBuffer[newSlot][E_INI_KV_ENTRY_NAME], key,   MAX_INI_ENTRY_NAME),
+			strcpy(YSI_g_sINIWriteBuffer[newSlot][E_INI_KV_ENTRY_TEXT], value, MAX_INI_ENTRY_TEXT),
+			newSlot;
+	}
+	return -1;
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">INI file to write to disk now.</param>
+ * <param name="restoreTag">After writing, reset the current tag?</param>
+ * <remarks>
+ *  Dumps all the current data to disk.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+static stock INI_Flush_(INI:file)
+{
+	// Parse the file, writing as we go.
+}
+
+static stock INI_FlushWithRestore(INI:file)
+{
+	new
+		tag[MAX_INI_TAG],
+		bool:deleted = mget(YSI_g_sINICurrentTag[file], 2);
+	mgets(tag, MAX_INI_TAG, YSI_g_sINICurrentTag[file], 3);
+	INI_Flush_(file);
+	// Don't forget to restore if this tag is deleted.
+	INI_SetTag(file, tag);
+	mset(YSI_g_sINICurrentTag[file], 2, deleted);
+}
+
+static stock INI_FlushWithoutRestore(INI:file)
+{
+	// This is to avoid a recursive function.  Previously `INI_Flush` took a
+	// parameter to restore the tag or not.  `INI_SetTag` always set that to
+	// `false`, which meant that no recursive call could ever happen.  However,
+	// the compiler didn't know that.  This way just ensures it isn't possible.
+	INI_Flush_(file);
 }
 
