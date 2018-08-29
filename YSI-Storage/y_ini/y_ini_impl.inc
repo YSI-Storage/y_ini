@@ -317,6 +317,96 @@ static stock Alloc:INI_GetTag(INI:file, const tag[])
 	}
 }
 
+static stock Alloc:INI_GetKey(INI:file, const key[], &Alloc:prev)
+{
+	prev = YSI_g_sINICurrentTag[file];
+	new
+		Alloc:cur = Alloc:mget(prev, 0);
+	while (cur)
+	{
+		if (!strcmp(key, mget(cur, 2)))
+		{
+			return cur;
+		}
+		prev = cur;
+		cur = Alloc:mget(prev, 0);
+	}
+	return NO_ALLOC;
+}
+
+/*-------------------------------------------------------------------------*//**
+ * <param name="file">INI file to write to.</param>
+ * <param name="name">Data name to write.</param>
+ * <param name="data">Data to write.</param>
+ * <returns>
+ *  The slot written to, or -1 on failure.
+ * </returns>
+ * <remarks>
+ *  First checks the name doesn't already exist under the current tag header
+ *  and if it does overwrites the current value.  If not checks there's room
+ *  in the buffer to write to and purges the buffer if not.  Finally saves the
+ *  data in the buffer for writing when required and adds the data to the
+ *  relevant list for tag inclusion.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+_Y_INI_STATIC stock bool:INI_AddToBuffer(INI:file, const key[], const value[])
+{
+	P:4("INI_AddToBuffer called: %i, \"%s\", \"%s\"", _:file, key, value);
+	if (strfind(key, " ") != -1)
+	{
+		P:E("INI key \"%s\" must not contain spaces", key);
+		return;
+	}
+	if (INI_IsValid(file) && key[0])
+	{
+		if (mget(YSI_g_sINICurrentTag[file], 2))
+		{
+			// The tag is deleted - no point writing anything to it!
+			return false;
+		}
+		new
+			len = strlen(key) + strlen(value) + 4, // 2 * NULL + next + keylen.
+			Alloc:prev,
+			Alloc:mem = INI_GetKey(file, key, prev);
+		if (mem)
+		{
+			// We already wrote this value.  Can we change it?
+			if (Malloc_GetSlotSize(mem) >= len)
+			{
+				// Write this new value at the value offset.
+				msets(mem, mget(mem, 1) + 1, value);
+				return true;
+			}
+			// Not enough space to replace, so don't bother.  First remove it
+			// from the linked list (this will even work for the first value
+			// because we use the same offset for initial and next).
+			mset(prev, 0, mget(mem, 0)),
+			free(mem);
+		}
+		for ( ; ; )
+		{
+			// Allocate new memory.
+			mem = malloc(len);
+			if (mem)
+			{
+				len = strlen(key),
+				// Add the strings, with the value offset.
+				mset(mem, 1, len + 2),
+				msets(mem, 2, key),
+				msets(mem, len + 3, value),
+				// Add this to the linked list.
+				mset(mem, 0, mget(YSI_g_sINICurrentTag[file], 0)),
+				mset(YSI_g_sINICurrentTag[file], 0, mem);
+				return true;
+			}
+			// Try again.
+			INI_FlushWithRestore();
+		}
+	}
+	return false;
+}
+
 /*
 
     88b           d88            88                       db        88888888ba  88  
@@ -700,7 +790,7 @@ stock bool:INI_DeleteTag(INI:file, const tag[])
  * </remarks>
  *//*------------------------------------------------------------------------**/
 
-stock INI_RemoveEntry(INI:file, name[])
+stock bool:INI_RemoveEntry(INI:file, name[])
 {
 	P:3("INI_RemoveEntry called: %i, \"%s\"", _:file, name);
 	return INI_AddToBuffer(file, name, NULL);
@@ -1005,7 +1095,7 @@ state_in_continuation:
  * </remarks>
  *//*------------------------------------------------------------------------**/
 
-stock INI_WriteString(INI:file, const name[], const data[])
+stock bool:INI_WriteString(INI:file, const name[], const data[])
 {
 	P:3("INI_WriteString called: %i, \"%s\", \"%s\"", _:file, name, data);
 	return INI_AddToBuffer(file, name, data);
@@ -1021,7 +1111,7 @@ stock INI_WriteString(INI:file, const name[], const data[])
  * </remarks>
  *//*------------------------------------------------------------------------**/
 
-stock INI_WriteInt(INI:file, const name[], data)
+stock bool:INI_WriteInt(INI:file, const name[], data)
 {
 	P:3("INI_WriteInt called: %i, \"%s\", %i", _:file, name, data);
 	static const
@@ -1047,7 +1137,7 @@ stock INI_WriteInt(INI:file, const name[], data)
  * </remarks>
  *//*------------------------------------------------------------------------**/
 
-stock INI_WriteHex(INI:file, const name[], data)
+stock bool:INI_WriteHex(INI:file, const name[], data)
 {
 	P:3("INI_WriteHex called: %i, \"%s\", %i", _:file, name, data);
 	return
@@ -1064,7 +1154,7 @@ stock INI_WriteHex(INI:file, const name[], data)
  * </remarks>
  *//*------------------------------------------------------------------------**/
 
-stock INI_WriteBin(INI:file, const name[], data)
+stock bool:INI_WriteBin(INI:file, const name[], data)
 {
 	P:3("INI_WriteBin called: %i, \"%s\", %i", _:file, name, data);
 	if (data < 0) format(Q@, sizeof (Q@), "0b1%031b", data & 0x7FFFFFFF);
@@ -1081,7 +1171,7 @@ stock INI_WriteBin(INI:file, const name[], data)
  * </remarks>
  *//*------------------------------------------------------------------------**/
 
-stock INI_WriteBool(INI:file, const name[], bool:data)
+stock bool:INI_WriteBool(INI:file, const name[], bool:data)
 {
 	P:3("INI_WriteBool called: %i, \"%s\", %i", _:file, name, _:data);
 	return INI_AddToBuffer(file, name, data ? ("true") : ("false"));
@@ -1097,7 +1187,7 @@ stock INI_WriteBool(INI:file, const name[], bool:data)
  * </remarks>
  *//*------------------------------------------------------------------------**/
 
-stock INI_WriteFloat(INI:file, const name[], Float:data, accuracy = 6)
+stock bool:INI_WriteFloat(INI:file, const name[], Float:data, accuracy = 6)
 {
 	P:3("INI_WriteFloat called: %i, \"%s\", %f, %i", _:file, name, data, accuracy);
 	return
@@ -1476,75 +1566,6 @@ static stock INI_HandleEnd() <>
 		Indirect_Release(YSI_g_sCB_ss),
 		YSI_g_sCB_ss = Func:0<ss>;
 	}
-}
-
-/*-------------------------------------------------------------------------*//**
- * <param name="file">INI file to write to.</param>
- * <param name="name">Data name to write.</param>
- * <param name="data">Data to write.</param>
- * <returns>
- *  The slot written to, or -1 on failure.
- * </returns>
- * <remarks>
- *  First checks the name doesn't already exist under the current tag header
- *  and if it does overwrites the current value.  If not checks there's room
- *  in the buffer to write to and purges the buffer if not.  Finally saves the
- *  data in the buffer for writing when required and adds the data to the
- *  relevant list for tag inclusion.
- * </remarks>
- *//*------------------------------------------------------------------------**/
-
-_Y_INI_STATIC stock INI_AddToBuffer(INI:file, const key[], const value[])
-{
-	P:4("INI_AddToBuffer called: %i, \"%s\", \"%s\"", _:file, key, value);
-	if (strfind(value, " ") != -1)
-	{
-		P:E("INI key \"%s\" must not contain spaces", key);
-		return;
-	}
-	if (INI_IsValid(file) && key[0])
-	{
-		// Get the current tag.
-		new
-			curTag = YSI_g_sINICurrentTag[file];
-		if (curTag == -1) curTag = INI_SetTag(file, INI_NO_TAG);
-		else
-		{
-			// Find if this entry already exists.
-			new
-				curSlot = YSI_g_sINITagBuffer[curTag][E_INI_TAGS_START];
-			if (curSlot == cellmax) return -1; // Deleted tag, don't save.
-			else while (curSlot != -1)
-			{
-				if (!strcmp(key, YSI_g_sINIWriteBuffer[curSlot][E_INI_KV_ENTRY_NAME], true))
-				{
-					return
-						strcpy(YSI_g_sINIWriteBuffer[curSlot][E_INI_KV_ENTRY_TEXT], value, MAX_INI_ENTRY_TEXT),
-						curSlot;
-				}
-				curSlot = YSI_g_sINIWriteBuffer[curSlot][E_INI_KV_ENTRY_NEXT];
-			}
-		}
-		// Get a new slot.
-		if (YSI_g_sINIWritePos == -1)
-		{
-			// Free up some space.
-			if (!INI_Flush()) return -1;
-			curTag = YSI_g_sINICurrentTag[file];
-		}
-		// Get a free slot in the system.
-		new
-			newSlot = YSI_g_sINIWritePos;
-		YSI_g_sINIWritePos = YSI_g_sINIWriteBuffer[YSI_g_sINIWritePos][E_INI_KV_ENTRY_NEXT],
-		YSI_g_sINIWriteBuffer[newSlot][E_INI_KV_ENTRY_NEXT] = YSI_g_sINITagBuffer[curTag][E_INI_TAGS_START],
-		YSI_g_sINITagBuffer[curTag][E_INI_TAGS_START] = newSlot;
-		// Now write to it.
-		return
-			strcpy(YSI_g_sINIWriteBuffer[newSlot][E_INI_KV_ENTRY_NAME], key,   MAX_INI_ENTRY_NAME),
-			strcpy(YSI_g_sINIWriteBuffer[newSlot][E_INI_KV_ENTRY_TEXT], value, MAX_INI_ENTRY_TEXT),
-			newSlot;
-	}
-	return -1;
 }
 
 /*-------------------------------------------------------------------------*//**
