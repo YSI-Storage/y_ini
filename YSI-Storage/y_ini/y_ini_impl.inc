@@ -705,7 +705,7 @@ stock INI_Close(INI:file)
 	if (INI_IsValid(file))
 	{
 		INI_FlushWithoutRestore(file),
-		YSI_g_sINITagBuffer[file] = NO_ALLOC,
+		YSI_g_sINITagBuffer[file] = NO_ALLOC;
 	}
 }
 
