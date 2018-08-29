@@ -205,6 +205,11 @@ stock INI_Close(INI:file)
 stock INI_SetTag(INI:file, const tag[])
 {
 	P:3("INI_SetTag called: %i, \"%s\"", _:file, tag);
+	if (strfind(tag, " ") != -1)
+	{
+		P:E("INI tag \"%s\" must not contain spaces", tag);
+		return;
+	}
 	if (INI_IsValid(file))
 	{
 		// Loop through the tags for this file.
@@ -477,6 +482,13 @@ static stock INI_FreeEntry(slot)
 		ret;
 }
 
+/*-------------------------------------------------------------------------*//**
+ * <param name="slot">Slot to remove.</param>
+ * <remarks>
+ *
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
 static stock INI_DumpTag(File:buffer, curTag)
 {
 	new
@@ -490,97 +502,6 @@ static stock INI_DumpTag(File:buffer, curTag)
 		curSlot = INI_FreeEntry(curSlot);
 	}
 }
-
-/*stock INI_WriteArray(INI:file, const name[], data[], len)
-{
-	// Write 6 bits at a time, in 3 cell chunks.  It takes 16 bytes to record
-	// three cells with 6 bits per byte.
-	P:4("INI_WriteArray called");
-	new
-		dname[MAX_INI_ENTRY_NAME],
-		write[Y_INI_WRITE_ARRAY_SIZE + 1],
-		idx,
-		wi,
-		iter;
-	// Write the length first just so the data exists.
-	//INI_WriteInt(file, name, len);
-	valstr(write, len),
-	INI_AddToBuffer(file, name, write),
-	write[0] = '\0';
-	while (idx + 3 < len)
-	{
-		// Store all the data fast.
-		write[wi++] = ((data[idx] & 0xFC000000) >>> 26) + '>',
-		write[wi++] = ((data[idx] & 0x03F00000) >>> 20) + '>',
-		write[wi++] = ((data[idx] & 0x000FC000) >>> 14) + '>',
-		write[wi++] = ((data[idx] & 0x00003F00) >>> 8) + '>',
-		write[wi++] = ((data[idx] & 0x000000FC) >>> 2) + '>',
-		write[wi++] = (((data[idx] & 0x00000003) << 4) | ((data[idx + 1] & 0xF0000000) >>> 28)) + '>',
-		++idx,
-		write[wi++] = ((data[idx] & 0x0FC00000) >>> 22) + '>',
-		write[wi++] = ((data[idx] & 0x003F0000) >>> 16) + '>',
-		write[wi++] = ((data[idx] & 0x0000FC00) >>> 10) + '>',
-		write[wi++] = ((data[idx] & 0x000003F0) >>> 4) + '>',
-		write[wi++] = (((data[idx] & 0x0000000F) << 2) | ((data[idx + 1] & 0xC0000000) >>> 30)) + '>',
-		++idx,
-		write[wi++] = ((data[idx] & 0x3F000000) >>> 24) + '>',
-		write[wi++] = ((data[idx] & 0x00FC0000) >>> 18) + '>',
-		write[wi++] = ((data[idx] & 0x0003F000) >>> 12) + '>',
-		write[wi++] = ((data[idx] & 0x00000FC0) >>> 6) + '>',
-		write[wi++] = ((data[idx] & 0x0000003F) >>> 0) + '>',
-		++idx;
-		if (wi == Y_INI_WRITE_ARRAY_SIZE)
-		{
-			format(dname, sizeof (dname), "@@%s-%d", name, iter++);
-			P:5("Uvar_WriteArray: write %s = %s", dname, write);
-			write[wi] = '\0',
-			INI_AddToBuffer(file, dname, write),
-			write[0] = '\0',
-			wi = 0;
-		}
-	}
-	// Do the straggling bytes.
-	if (idx != len)
-	{
-		write[wi++] = ((data[idx] & 0xFC000000) >>> 26) + '>',
-		write[wi++] = ((data[idx] & 0x03F00000) >>> 20) + '>',
-		write[wi++] = ((data[idx] & 0x000FC000) >>> 14) + '>',
-		write[wi++] = ((data[idx] & 0x00003F00) >>> 8) + '>',
-		write[wi++] = ((data[idx] & 0x000000FC) >>> 2) + '>';
-		if (++idx == len)
-		{
-			write[wi++] = ((data[idx - 1] & 0x00000003) << 4) + '>';
-		}
-		else
-		{
-			write[wi++] = (((data[idx - 1] & 0x00000003) << 4) | ((data[idx] & 0xF0000000) >>> 28)) + '>',
-			write[wi++] = ((data[idx] & 0x0FC00000) >>> 22) + '>',
-			write[wi++] = ((data[idx] & 0x003F0000) >>> 16) + '>',
-			write[wi++] = ((data[idx] & 0x0000FC00) >>> 10) + '>',
-			write[wi++] = ((data[idx] & 0x000003F0) >>> 4) + '>';
-			if (++idx == len)
-			{
-				write[wi++] = ((data[idx - 1] & 0x0000000F) << 2) + '>';
-			}
-			else
-			{
-				write[wi++] = (((data[idx - 1] & 0x0000000F) << 2) | ((data[idx] & 0xC0000000) >>> 30)) + '>',
-				write[wi++] = ((data[idx] & 0x3F000000) >>> 24) + '>',
-				write[wi++] = ((data[idx] & 0x00FC0000) >>> 18) + '>',
-				write[wi++] = ((data[idx] & 0x0003F000) >>> 12) + '>',
-				write[wi++] = ((data[idx] & 0x00000FC0) >>> 6) + '>',
-				write[wi++] = ((data[idx] & 0x0000003F) >>> 0) + '>';
-			}
-		}
-		format(dname, sizeof (dname), "@@%s-%d", name, iter++);
-		P:5("Uvar_WriteArray: write %s = %s", dname, write);
-		write[wi] = '\0',
-		INI_AddToBuffer(file, dname, write),
-		write[0] = '\0',
-		wi = 0;
-	}
-	return 1;
-}*/
 
 /*-------------------------------------------------------------------------*//**
  * <param name="file">INI file to write to.</param>
@@ -601,6 +522,11 @@ static stock INI_DumpTag(File:buffer, curTag)
 _Y_INI_STATIC stock INI_AddToBuffer(INI:file, const key[], const value[])
 {
 	P:4("INI_AddToBuffer called: %i, \"%s\", \"%s\"", _:file, key, value);
+	if (strfind(tag, " ") != -1)
+	{
+		P:E("INI key \"%s\" must not contain spaces", key);
+		return;
+	}
 	if (INI_IsValid(file) && key[0])
 	{
 		// Get the current tag.
