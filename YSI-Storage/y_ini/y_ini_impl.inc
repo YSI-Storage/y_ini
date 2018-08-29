@@ -968,44 +968,38 @@ static stock INI_HandleTag(const tag[]) <
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_yyyy, y_ini:y_ini_reading_nyyy>
 {
-	return
-		Indirect_Release(YSI_g_sCB_issss),
-		Callback_Find(cb, YSI_g_sCB_issss, YSI_g_sRemote) ? -1 : 0;
+	Indirect_Release(YSI_g_sCB_issss);
+	return Callback_Find(cb, YSI_g_sCB_issss, YSI_g_sRemote) ? -1 : 0;
 }
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_yyyn, y_ini:y_ini_reading_nyyn, y_ini:y_ini_reading_yyny, y_ini:y_ini_reading_nyny>
 {
-	return
-		Indirect_Release(YSI_g_sCB_isss),
-		Callback_Find(cb, YSI_g_sCB_isss, YSI_g_sRemote) ? -1 : 0;
+	Indirect_Release(YSI_g_sCB_isss);
+	return Callback_Find(cb, YSI_g_sCB_isss, YSI_g_sRemote) ? -1 : 0;
 }
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_yynn, y_ini:y_ini_reading_nynn>
 {
-	return
-		Indirect_Release(YSI_g_sCB_iss),
-		Callback_Find(cb, YSI_g_sCB_iss, YSI_g_sRemote) ? -1 : 0;
+	Indirect_Release(YSI_g_sCB_iss);
+	return Callback_Find(cb, YSI_g_sCB_iss, YSI_g_sRemote) ? -1 : 0;
 }
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_ynyy, y_ini:y_ini_reading_nnyy>
 {
-	return
-		Indirect_Release(YSI_g_sCB_ssss),
-		Callback_Find(cb, YSI_g_sCB_ssss, YSI_g_sRemote) ? -1 : 0;
+	Indirect_Release(YSI_g_sCB_ssss);
+	return Callback_Find(cb, YSI_g_sCB_ssss, YSI_g_sRemote) ? -1 : 0;
 }
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_ynyn, y_ini:y_ini_reading_nnyn, y_ini:y_ini_reading_ynny, y_ini:y_ini_reading_nnny>
 {
-	return
-		Indirect_Release(YSI_g_sCB_sss),
-		Callback_Find(cb, YSI_g_sCB_sss, YSI_g_sRemote) ? -1 : 0;
+	Indirect_Release(YSI_g_sCB_sss);
+	return Callback_Find(cb, YSI_g_sCB_sss, YSI_g_sRemote) ? -1 : 0;
 }
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_ynnn, y_ini:y_ini_reading_nnnn>
 {
-	return
-		Indirect_Release(YSI_g_sCB_ss),
-		Callback_Find(cb, YSI_g_sCB_ss, YSI_g_sRemote) ? -1 : 0;
+	Indirect_Release(YSI_g_sCB_ss);
+	return Callback_Find(cb, YSI_g_sCB_ss, YSI_g_sRemote) ? -1 : 0;
 }
 
 static stock INI_FindCallback(const cb[]) <>
