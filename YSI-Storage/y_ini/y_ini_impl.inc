@@ -822,30 +822,6 @@ INI_ReadFile_cont:
 }
 
 /*-------------------------------------------------------------------------*//**
- * <remarks>
- *  The `bFileFirst` state (first letter) is only used to generate the name of
- *  the callback.  It isn't used to determine what parameters to pass.  Thus for
- *  many functions the states are paired in their `yxxx`/`nxxx` variants.
- * </remarks>
- *//*------------------------------------------------------------------------**/
-
-static stock INI_DefineStates() <y_ini:y_ini_writing_fast, y_ini:y_ini_writing_slow>
-{
-}
-
-static stock INI_DefineStates() <
-	y_ini:y_ini_reading_yyyy, y_ini:y_ini_reading_nyyy,
-	y_ini:y_ini_reading_yyyn, y_ini:y_ini_reading_nyyn,
-	y_ini:y_ini_reading_yyny, y_ini:y_ini_reading_nyny,
-	y_ini:y_ini_reading_yynn, y_ini:y_ini_reading_nynn,
-	y_ini:y_ini_reading_ynyy, y_ini:y_ini_reading_nnyy,
-	y_ini:y_ini_reading_ynyn, y_ini:y_ini_reading_nnyn,
-	y_ini:y_ini_reading_ynny, y_ini:y_ini_reading_nnny,
-	y_ini:y_ini_reading_ynnn, y_ini:y_ini_reading_nnnn>
-{
-}
-
-/*-------------------------------------------------------------------------*//**
  * <param name="key">The key of the data loaded.</param>
  * <param name="value">The data loaded.</param>
  * <remarks>
