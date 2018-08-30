@@ -459,13 +459,15 @@ stock bool:INI_ParseFile(fname[], remoteFormat[], bool:bFileFirst = false, bool:
 	strcpy(YSI_g_sFormat, remoteFormat);
 	new
 		start = strlen(fname);
-	while (start && fname[start - 1] != '/' && fname[start - 1] != '\\')
-		--start;
-	new
-		end = start;
-	while (fname[end] && fname[end] != '.')
-		++end;
-	strcpy(YSI_g_sFile, fname[start], end - start + 1);
+	{
+		while (start && fname[start - 1] != '/' && fname[start - 1] != '\\')
+			--start;
+		new
+			end = start;
+		while (fname[end] && fname[end] != '.')
+			++end;
+		strcpy(YSI_g_sFile, fname[start], end - start + 1);
+	}
 	YSI_g_sRemote = !bLocal;
 	YSI_g_sExtra = extra;
 	// Read the file.  We have no parent and want to be in read mode.  What we
@@ -545,7 +547,21 @@ stock bool:INI_ParseFile(fname[], remoteFormat[], bool:bFileFirst = false, bool:
 			}
 		}
 	}
-	INI_ReadFile(fhnd, parent);
+	{
+		// Set up the initial callback.
+		new
+			pos = -1,
+			cb[32];
+		YSI_g_sTag[0] = '\0';
+		if (bFileFirst)
+			format(cb, sizeof (cb), YSI_g_sFormat, YSI_g_sFile, "");
+		else
+			format(cb, sizeof (cb), YSI_g_sFormat, "", YSI_g_sFile);
+		while ((pos = strfind(cb, " ", false, pos + 1)) != -1)
+			cb[pos] = '_';
+		start = INI_FindCallback(cb);
+	}
+	INI_ReadFile(fhnd, parent, start == -1);
 	fclose(fhnd);
 	return true;
 }
@@ -576,88 +592,88 @@ stock bool:INI_Load(filename[], bool:bExtra = false, extra = 0, bool:bLocal = tr
  * <param name="">Variable to fill with array value.</param>
  *//*------------------------------------------------------------------------**/
 
-stock _INI_Array(const name[], len, ...)
-{
-	// Load an array from the file, putting the data directly in to the
-	// desired memory storage location.
-	// 
-	// Continue reading through the file.  Since this code is now in y_ini, we
-	// can guarantee that the data will be in order in the file.
-	new
-		rlen,
-		offset = 0,
-		packed[YSI_MAX_STRING char],
-		p0s, p0e, p1s, p1e, p2s, p2e;
-	while ((rlen = fread(YSI_g_sCurrentFile, YSI_g_sCurLine)))
-	{
-		switch (INI_IdentifyLineType(YSI_g_sCurLine, p0s, p0e, p1s, p1e, p2s, p2e))
-		{
-			case e_INI_LINE_TYPE_INVALID:
-			{
-				P:W("Invalid line in INI file: %s", YSI_g_sCurLine);
-			}
-			case e_INI_LINE_TYPE_DATALESS:
-			{
-				// Do nothing.
-			}
-			case e_INI_LINE_TYPE_TAG:
-			{
-				break;
-			}
-			case e_INI_LINE_TYPE_CONT:
-			{
-				// Do nothing, wait for the rest of the line.
-			}
-			case e_INI_LINE_TYPE_ENTRY:
-			{
-				if (YSI_g_sExtendedLine)
-				{
-					if (Malloc_Get(YSI_g_sExtendedLine, 1) == '@')
-					{
-						P:E("Binary arrays cannot use continuation lines.");
-					}
-					free(YSI_g_sExtendedLine),
-					YSI_g_sExtendedLine = NO_ALLOC,
-					YSI_g_sExtendedName[0] = '\0';
-					break;
-				}
-				// Read lines starting with `@` here.  They indicate packed
-				// array data, which is only read by using `INI_Array`.
-				if (YSI_g_sCurLine[p0s] != '@')
-					break;
-				YSI_g_sCurLine[p0e] = '\0';
-				if (YSI_g_sCurLine[p0s + 1] == '@')
-				{
-					if (strcmp(YSI_g_sCurLine[p0s + 2], name))
-						break;
-					// Old-style packed arrays.  Used a double `@` prefix and a
-					// custom packing system.
-					
-				}
-				else
-				{
-					if (strcmp(YSI_g_sCurLine[p0s + 1], name))
-						break;
-					// Base 64 encoded data.
-					YSI_g_sCurLine[p1e] = '\0',
-					strpack(packed, YSI_g_sCurLine[p1s]),
-					p2e = Base64Decode(argderef(2), packed, len, offset),
-					len -= p2e,
-					offset += p2e;
-				}
-				// Move on.
-				YSI_g_sParentPos += rlen;
-				if (!len)
-					return 0;
-			}
-		}
-	}
-	if (len)
-		P:W("Incomplete array data in INI file for \"%s\"", name);
-	// Reparse the previous line.
-	fseek(YSI_g_sCurrentFile, YSI_g_sParentPos, seek_start);
-	return 0;
-}
+//stock _INI_Array(const name[], len, ...)
+//{
+//	// Load an array from the file, putting the data directly in to the
+//	// desired memory storage location.
+//	// 
+//	// Continue reading through the file.  Since this code is now in y_ini, we
+//	// can guarantee that the data will be in order in the file.
+//	new
+//		rlen,
+//		offset = 0,
+//		packed[YSI_MAX_STRING char],
+//		p0s, p0e, p1s, p1e, p2s, p2e;
+//	while ((rlen = fread(YSI_g_sCurrentFile, YSI_g_sCurLine)))
+//	{
+//		switch (INI_IdentifyLineType(YSI_g_sCurLine, p0s, p0e, p1s, p1e, p2s, p2e))
+//		{
+//			case e_INI_LINE_TYPE_INVALID:
+//			{
+//				P:W("Invalid line in INI file: %s", YSI_g_sCurLine);
+//			}
+//			case e_INI_LINE_TYPE_DATALESS:
+//			{
+//				// Do nothing.
+//			}
+//			case e_INI_LINE_TYPE_TAG:
+//			{
+//				break;
+//			}
+//			case e_INI_LINE_TYPE_CONT:
+//			{
+//				// Do nothing, wait for the rest of the line.
+//			}
+//			case e_INI_LINE_TYPE_ENTRY:
+//			{
+//				if (YSI_g_sExtendedLine)
+//				{
+//					if (Malloc_Get(YSI_g_sExtendedLine, 1) == '@')
+//					{
+//						P:E("Binary arrays cannot use continuation lines.");
+//					}
+//					free(YSI_g_sExtendedLine),
+//					YSI_g_sExtendedLine = NO_ALLOC,
+//					YSI_g_sExtendedName[0] = '\0';
+//					break;
+//				}
+//				// Read lines starting with `@` here.  They indicate packed
+//				// array data, which is only read by using `INI_Array`.
+//				if (YSI_g_sCurLine[p0s] != '@')
+//					break;
+//				YSI_g_sCurLine[p0e] = '\0';
+//				if (YSI_g_sCurLine[p0s + 1] == '@')
+//				{
+//					if (strcmp(YSI_g_sCurLine[p0s + 2], name))
+//						break;
+//					// Old-style packed arrays.  Used a double `@` prefix and a
+//					// custom packing system.
+//					
+//				}
+//				else
+//				{
+//					if (strcmp(YSI_g_sCurLine[p0s + 1], name))
+//						break;
+//					// Base 64 encoded data.
+//					YSI_g_sCurLine[p1e] = '\0',
+//					strpack(packed, YSI_g_sCurLine[p1s]),
+//					p2e = Base64Decode(argderef(2), packed, len, offset),
+//					len -= p2e,
+//					offset += p2e;
+//				}
+//				// Move on.
+//				YSI_g_sParentPos += rlen;
+//				if (!len)
+//					return 0;
+//			}
+//		}
+//	}
+//	if (len)
+//		P:W("Incomplete array data in INI file for \"%s\"", name);
+//	// Reparse the previous line.
+//	fseek(YSI_g_sCurrentFile, YSI_g_sParentPos, seek_start);
+//	return 0;
+//}
 
 /*-------------------------------------------------------------------------*//**
  * <param name="file">INI file handle to write to.</param>
@@ -838,7 +854,7 @@ stock bool:INI_RemoveEntry(INI:file, name[])
  * </remarks>
  *//*------------------------------------------------------------------------**/
 
-stock e_INI_LINE_TYPE:
+_Y_INI_STATIC stock e_INI_LINE_TYPE:
 	INI_IdentifyLineType(str[MAX_INI_LINE], &p0s, &p0e, &p1s, &p1e, &p2s, &p2e)
 {
 	// Reset everything.
@@ -1217,11 +1233,10 @@ stock bool:INI_WriteFloat(INI:file, const name[], Float:data, accuracy = 6)
 
 */
 
-static stock INI_ReadFile(File:fhnd, parent[32])
+static stock INI_ReadFile(File:fhnd, parent[32], bool:handle = true)
 {
 	new
 		bool:doneParent = false,
-		bool:handle = true,
 		pos = 0,
 		rlen,
 		p0s, p0e, p1s, p1e, p2s, p2e;
