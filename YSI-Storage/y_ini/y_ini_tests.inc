@@ -703,7 +703,7 @@ static stock DoINI_Int3()
 	inline Inl_(string:tag[], string:name[], string:value[])
 	{
 		// TODO:  I think there's a bug in here somewhere, with "GTYPE=0 MTYPE=1
-		// -O1 -d0", which crashes on ENTRY to this inlineю  I think that the
+		// -O1 -d0", which crashes on ENTRY to this inline.  I think that the
 		// problem may be too much, or incorrect, code being output.
 		switch (YHash(tag, false))
 		{
@@ -875,15 +875,13 @@ TEST__ INI_AddToBuffer0()
 	new
 		INI:i = INI_Open("YSI/test_ini/test3.ini");
 	ASSERT_NE(i, INI_NO_FILE);
-	ASSERT_EQ(INI_AddToBuffer(i, "", "hi"), -1);
-	ASSERT_EQ(INI_AddToBuffer(INI_NO_FILE, "foo", "bar"), -1);
-	ASSERT_NE(INI_AddToBuffer(i, "key", "value"), -1);
-	new
-		s = INI_AddToBuffer(i, "first", "second");
-	ASSERT_NE(s, -1);
-	ASSERT_EQ(INI_AddToBuffer(i, "first", "third"), s);
-	ASSERT_EQ(INI_AddToBuffer(i, "first", "fourth"), s);
-	ASSERT_EQ(INI_AddToBuffer(i, "first", "fifth"), s);
+	ASSERT(!INI_AddToBuffer(i, "", "hi"));
+	ASSERT(!INI_AddToBuffer(INI_NO_FILE, "foo", "bar"));
+	ASSERT(INI_AddToBuffer(i, "key", "value"));
+	ASSERT(INI_AddToBuffer(i, "first", "second"));
+	ASSERT(INI_AddToBuffer(i, "first", "third"));
+	ASSERT(INI_AddToBuffer(i, "first", "fourth"));
+	ASSERT(INI_AddToBuffer(i, "first", "fifth"));
 	INI_Close(i);
 }
 
@@ -891,14 +889,12 @@ TEST__ INI_AddToBuffer1()
 {
 	new
 		INI:i = INI_Open("YSI/test_ini/test4.ini");
-	new
-		s = INI_AddToBuffer(i, "key2", "value2");
-	ASSERT_NE(s, -1);
+	ASSERT(INI_AddToBuffer(i, "key2", "value2"));
 	INI_SetTag(i, "tag0");
-	ASSERT_NE(INI_AddToBuffer(i, "key2", "value3"), s);
-	ASSERT_NE(INI_AddToBuffer(i, "key2", "value4"), -1);
+	ASSERT(INI_AddToBuffer(i, "key2", "value3"));
+	ASSERT(INI_AddToBuffer(i, "key2", "value4"));
 	INI_DeleteTag(i, "tag0");
-	ASSERT_EQ(INI_AddToBuffer(i, "key2", "value5"), -1);
+	ASSERT(!INI_AddToBuffer(i, "key2", "value5"));
 	INI_Close(i);
 }
 
