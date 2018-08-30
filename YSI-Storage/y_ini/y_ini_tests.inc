@@ -438,6 +438,7 @@ forward TestINI_Parse5_test1(tag[], key[], value[]);
 
 public TestINI_Parse5_test1(tag[], key[], value[])
 {
+	printf("%s, %s, %s", tag, key, value);
 	if (isnull(tag)) ++YSI_g_sINI_Parse0;
 }
 

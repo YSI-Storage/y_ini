@@ -552,7 +552,8 @@ stock bool:INI_ParseFile(fname[], remoteFormat[], bool:bFileFirst = false, bool:
 		new
 			pos = -1,
 			cb[32];
-		YSI_g_sTag[0] = '\0';
+		YSI_g_sTag[0] = '\1';
+		YSI_g_sTag[1] = '\0';
 		if (bFileFirst)
 			format(cb, sizeof (cb), YSI_g_sFormat, YSI_g_sFile, "");
 		else
@@ -1368,12 +1369,12 @@ static stock INI_HandleEntry(const key[], const value[]) <y_ini:y_ini_reading_yy
 
 static stock INI_HandleEntry(const key[], const value[]) <y_ini:y_ini_reading_yyyn, y_ini:y_ini_reading_nyyn>
 {
-	@.YSI_g_sCB_isss(YSI_g_sExtra, YSI_g_sFile, key, value);
+	@.YSI_g_sCB_isss(YSI_g_sExtra, YSI_g_sTag, key, value);
 }
 
 static stock INI_HandleEntry(const key[], const value[]) <y_ini:y_ini_reading_yyny, y_ini:y_ini_reading_nyny>
 {
-	@.YSI_g_sCB_isss(YSI_g_sExtra, YSI_g_sTag, key, value);
+	@.YSI_g_sCB_isss(YSI_g_sExtra, YSI_g_sFile, key, value);
 }
 
 static stock INI_HandleEntry(const key[], const value[]) <y_ini:y_ini_reading_yynn, y_ini:y_ini_reading_nynn>
@@ -1388,12 +1389,12 @@ static stock INI_HandleEntry(const key[], const value[]) <y_ini:y_ini_reading_yn
 
 static stock INI_HandleEntry(const key[], const value[]) <y_ini:y_ini_reading_ynyn, y_ini:y_ini_reading_nnyn>
 {
-	@.YSI_g_sCB_sss(YSI_g_sFile, key, value);
+	@.YSI_g_sCB_sss(YSI_g_sTag, key, value);
 }
 
 static stock INI_HandleEntry(const key[], const value[]) <y_ini:y_ini_reading_ynny, y_ini:y_ini_reading_nnny>
 {
-	@.YSI_g_sCB_sss(YSI_g_sTag, key, value);
+	@.YSI_g_sCB_sss(YSI_g_sFile, key, value);
 }
 
 static stock INI_HandleEntry(const key[], const value[]) <y_ini:y_ini_reading_ynnn, y_ini:y_ini_reading_nnnn>
