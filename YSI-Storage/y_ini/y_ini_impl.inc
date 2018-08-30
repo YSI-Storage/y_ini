@@ -295,7 +295,7 @@ static stock Alloc:INI_GetTag(Alloc:cur, const tag[])
 	{
 		while (cur)
 		{
-			if (!strcmp(tag, mget(cur, 3)))
+			if (!mget(cur, 3) && strcmp(tag, mget(cur, 3)))
 			{
 				return cur;
 			}
@@ -320,6 +320,7 @@ static stock Alloc:INI_GetTag(Alloc:cur, const tag[])
 
 static stock Alloc:INI_GetKey(Alloc:cur, const key[], &Alloc:prev)
 {
+	P:4("INI_GetKey called: prev = %d %s", cur, mget(cur, 3));
 	for ( ; ; )
 	{
 		prev = cur,
@@ -659,6 +660,50 @@ stock _INI_Array(const name[], len, ...)
 }
 
 /*-------------------------------------------------------------------------*//**
+ * <param name="file">INI file handle to write to.</param>
+ * <param name="tag">Name of the new file subsection for subsequent data to write to.</param>
+ * <remarks>
+ *  Sets a new [tag] section header.  Subsequent data is written under this
+ *  header.  Uses lists for constant tag switching and checks the tag doesn't
+ *  already exist.
+ * </remarks>
+ *//*------------------------------------------------------------------------**/
+
+static stock bool:INI_SetTag_(INI:file, const tag[])
+{
+	// Loop through the tags for this file.
+	new
+		Alloc:cur = INI_GetTag(YSI_g_sINITagBuffer[file], tag);
+	if (cur)
+	{
+		P:5("INI_SetTag_: Found old key");
+		YSI_g_sINICurrentTag[file] = cur;
+		return true;
+	}
+	for ( ; ; )
+	{
+		// Allocate a new tag.
+		cur = malloc(strlen(tag) + 4);
+		if (cur)
+		{
+			mset(cur, 0, 0),
+			mset(cur, 1, YSI_g_sINITagBuffer[file]),
+			YSI_g_sINITagBuffer[file] = cur,
+			YSI_g_sINICurrentTag[file] = cur,
+			mset(cur, 2, 0),
+			msets(cur, 3, tag);
+			P:7("INI_SetTag_: allocated %s", mget(YSI_g_sINICurrentTag[file], 3));
+			break;
+		}
+		// Allocating a new tag failed.  Clear memory and try again.  When
+		// flushing, don't restore the current tag, since we're about to
+		// write a new one.
+		INI_FlushWithoutRestore(file);
+	}
+	return true;
+}
+
+/*-------------------------------------------------------------------------*//**
  * <param name="filename">INI file to open.</param>
  * <returns>
  *  INI - handle to the file or INI_NO_FILE.
@@ -686,10 +731,9 @@ stock INI:INI_Open(const filename[])
 		return INI_NO_FILE;
 	}
 	return
-		strcpy(YSI_g_sINIWriteFile[i], filename, YSI_MAX_STRING),
 		// Reset tags.
-		YSI_g_sINICurrentTag[i] = NO_ALLOC,
-		INI_SetTag(i, ""),
+		INI_SetTag_(i, ""),
+		strcpy(YSI_g_sINIWriteFile[i], filename, YSI_MAX_STRING),
 		i;
 }
 
@@ -710,16 +754,6 @@ stock INI_Close(INI:file)
 	}
 }
 
-/*-------------------------------------------------------------------------*//**
- * <param name="file">INI file handle to write to.</param>
- * <param name="tag">Name of the new file subsection for subsequent data to write to.</param>
- * <remarks>
- *  Sets a new [tag] section header.  Subsequent data is written under this
- *  header.  Uses lists for constant tag switching and checks the tag doesn't
- *  already exist.
- * </remarks>
- *//*------------------------------------------------------------------------**/
-
 stock bool:INI_SetTag(INI:file, const tag[])
 {
 	P:3("INI_SetTag called: %i, \"%s\"", _:file, tag);
@@ -733,33 +767,7 @@ stock bool:INI_SetTag(INI:file, const tag[])
 	}
 	else if (INI_IsValid(file))
 	{
-		// Loop through the tags for this file.
-		new
-			Alloc:cur = INI_GetTag(YSI_g_sINITagBuffer[file], tag);
-		if (cur)
-		{
-			YSI_g_sINICurrentTag[file] = cur;
-			return true;
-		}
-		for ( ; ; )
-		{
-			// Allocate a new tag.
-			cur = malloc(strlen(tag) + 4);
-			if (cur)
-			{
-				mset(cur, 0, YSI_g_sINITagBuffer[file]),
-				YSI_g_sINITagBuffer[file] = cur,
-				YSI_g_sINICurrentTag[file] = cur,
-				mset(cur, 1, 0),
-				mset(cur, 2, 0),
-				msets(cur, 3, tag);
-				return true;
-			}
-			// Allocating a new tag failed.  Clear memory and try again.  When
-			// flushing, don't restore the current tag, since we're about to
-			// write a new one.
-			INI_FlushWithoutRestore(file);
-		}
+		return INI_SetTag_(file, tag);
 	}
 	return false;
 }
@@ -1626,8 +1634,9 @@ static stock INI_HandleEnd() <y_ini:y_ini_writing_fast, y_ini:y_ini_writing_slow
 {
 	// Dump the remaining data.
 	new
-		Alloc:tag,
+		Alloc:tag = INI_GetTag(YSI_g_sINITagBuffer[YSI_g_sCurrentINI], ""),
 		Alloc:next = YSI_g_sINITagBuffer[YSI_g_sCurrentINI];
+	INI_DumpTag(tag);
 	while (next)
 	{
 		tag = next;
@@ -1742,7 +1751,7 @@ static stock INI_FlushWithRestore(INI:file)
 	mgets(tag, MAX_INI_TAG, YSI_g_sINICurrentTag[file], 3);
 	INI_Flush_(file);
 	// Don't forget to restore if this tag is deleted.
-	INI_SetTag(file, tag);
+	INI_SetTag_(file, tag);
 	mset(YSI_g_sINICurrentTag[file], 2, deleted);
 }
 
