@@ -898,6 +898,56 @@ TEST__ INI_AddToBuffer1()
 	INI_Close(i);
 }
 
+forward INI_WriteOne(tag[], name[], value[]);
+
+public INI_WriteOne(tag[], name[], value[])
+{
+	if (!strcmp(tag, "tag"))
+	{
+		if (!strcmp(name, "thing")) YSI_g_sINI_Parse0 += strval(value);
+		if (!strcmp(name, "key")) YSI_g_sINI_Parse0 += strval(value);
+		if (!strcmp(name, "name")) ++YSI_g_sINI_Parse0;
+		if (!strcmp(name, "alt")) YSI_g_sINI_Parse0 += floatround(floatstr(value));
+		if (!strcmp(name, "you")) YSI_g_sINI_Parse0 += strval(value);
+		if (!strcmp(name, "hi")) ++YSI_g_sINI_Parse0;
+		if (!strcmp(name, "yeah")) ++YSI_g_sINI_Parse0;
+		if (!strcmp(name, "another")) YSI_g_sINI_Parse0 += strval(value);
+	}
+	else
+	{
+		YSI_g_sINI_Parse0 = 100;
+	}
+}
+
+TEST__ INI_WriteOne()
+{
+	fremove("YSI/test_ini/test9.ini");
+	new
+		INI:i = INI_Open("YSI/test_ini/test9.ini");
+	ASSERT_NE(i, INI_NO_FILE);
+	INI_WriteString(i, "hi", "there");
+	INI_SetTag(i, "tag");
+	INI_WriteString(i, "yeah", "yeah");
+	INI_WriteString(i, "hi", "you");
+	INI_WriteInt(i, "you", 42);
+	INI_WriteFloat(i, "alt", 40.1);
+	INI_WriteBool(i, "name", true);
+	INI_WriteInt(i, "key", 43);
+	INI_WriteInt(i, "thing", 44);
+	INI_Close(i);
+	YSI_g_sINI_Parse0 = 0;
+	INI_ParseFile("YSI/test_ini/test9.ini", "INI_WriteOne", .bPassTag = true);
+	ASSERT_EQ(YSI_g_sINI_Parse0, 100 + 42 + 40 + 43 + 44 + 3);
+	i = INI_Open("YSI/test_ini/test9.ini");
+	INI_SetTag(i, "tag");
+	INI_WriteString(i, "another", "200");
+	INI_WriteInt(i, "you", 200);
+	INI_Close(i);
+	YSI_g_sINI_Parse0 = 0;
+	INI_ParseFile("YSI/test_ini/test9.ini", "INI_WriteOne", .bPassTag = true);
+	ASSERT_EQ(YSI_g_sINI_Parse0, 100 + 200 + 200 + 40 + 43 + 44 + 3);
+}
+
 //TEST__ INI_VariousWriting0()
 //{
 //	new

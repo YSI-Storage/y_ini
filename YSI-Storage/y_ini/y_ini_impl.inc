@@ -295,7 +295,7 @@ static stock Alloc:INI_GetTag(Alloc:cur, const tag[])
 	{
 		while (cur)
 		{
-			if (!mget(cur, 3) && strcmp(tag, mget(cur, 3)))
+			if (mget(cur, 3) && !strcmp(tag, mget(cur, 3)))
 			{
 				return cur;
 			}
@@ -1650,10 +1650,10 @@ static stock INI_FindCallback(const cb[]) <>
 static stock INI_HandleEnd() <y_ini:y_ini_writing_fast, y_ini:y_ini_writing_slow>
 {
 	// Dump the remaining data.
+	INI_DumpTag(YSI_g_sCurrentTag);
 	new
-		Alloc:tag = INI_GetTag(YSI_g_sINITagBuffer[YSI_g_sCurrentINI], ""),
+		Alloc:tag,
 		Alloc:next = YSI_g_sINITagBuffer[YSI_g_sCurrentINI];
-	INI_DumpTag(tag);
 	while (next)
 	{
 		tag = next;
@@ -1721,7 +1721,8 @@ static stock INI_HandleEnd() <>
 
 static stock INI_Flush_(INI:file)
 {
-	YSI_g_sCurrentFile = fopen("MY_TEMP.ini", io_write);
+	YSI_g_sNL = false;
+	YSI_g_sCurrentFile = ftemp();
 	if (!YSI_g_sCurrentFile)
 	{
 		return;
@@ -1750,12 +1751,30 @@ static stock INI_Flush_(INI:file)
 	if (!fhnd)
 	{
 		// Dump the file.
-		INI_HandleEnd();
 		fclose(YSI_g_sCurrentFile);
+		YSI_g_sCurrentFile = fopen(YSI_g_sINIWriteFile[file], io_write);
+		if (!YSI_g_sCurrentFile)
+		{
+			return;
+		}
+		INI_HandleEnd();
 		return;
 	}
 	// Now parse the file.
 	INI_ReadFile(fhnd, "");
+	// Now write it back out.
+	fseek(YSI_g_sCurrentFile, 0, seek_start);
+	fclose(fhnd);
+	fhnd = fopen(YSI_g_sINIWriteFile[file], io_write);
+	if (!fhnd)
+	{
+		fclose(YSI_g_sCurrentFile);
+		return;
+	}
+	while (fread(YSI_g_sCurrentFile, YSI_g_sCurLine))
+	{
+		fwrite(fhnd, YSI_g_sCurLine);
+	}
 	fclose(YSI_g_sCurrentFile);
 	fclose(fhnd);
 }
