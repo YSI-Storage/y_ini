@@ -1601,37 +1601,37 @@ static stock INI_HandleTag(const tag[]) <
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_yyyy, y_ini:y_ini_reading_nyyy>
 {
-	Indirect_Release(YSI_g_sCB_issss);
+	Callback_Restore(YSI_g_sCB_issss);
 	return Callback_Find(cb, YSI_g_sCB_issss, YSI_g_sRemote) ? -1 : 0;
 }
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_yyyn, y_ini:y_ini_reading_nyyn, y_ini:y_ini_reading_yyny, y_ini:y_ini_reading_nyny>
 {
-	Indirect_Release(YSI_g_sCB_isss);
+	Callback_Restore(YSI_g_sCB_isss);
 	return Callback_Find(cb, YSI_g_sCB_isss, YSI_g_sRemote) ? -1 : 0;
 }
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_yynn, y_ini:y_ini_reading_nynn>
 {
-	Indirect_Release(YSI_g_sCB_iss);
+	Callback_Restore(YSI_g_sCB_iss);
 	return Callback_Find(cb, YSI_g_sCB_iss, YSI_g_sRemote) ? -1 : 0;
 }
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_ynyy, y_ini:y_ini_reading_nnyy>
 {
-	Indirect_Release(YSI_g_sCB_ssss);
+	Callback_Restore(YSI_g_sCB_ssss);
 	return Callback_Find(cb, YSI_g_sCB_ssss, YSI_g_sRemote) ? -1 : 0;
 }
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_ynyn, y_ini:y_ini_reading_nnyn, y_ini:y_ini_reading_ynny, y_ini:y_ini_reading_nnny>
 {
-	Indirect_Release(YSI_g_sCB_sss);
+	Callback_Restore(YSI_g_sCB_sss);
 	return Callback_Find(cb, YSI_g_sCB_sss, YSI_g_sRemote) ? -1 : 0;
 }
 
 static stock INI_FindCallback(const cb[]) <y_ini:y_ini_reading_ynnn, y_ini:y_ini_reading_nnnn>
 {
-	Indirect_Release(YSI_g_sCB_ss);
+	Callback_Restore(YSI_g_sCB_ss);
 	return Callback_Find(cb, YSI_g_sCB_ss, YSI_g_sRemote) ? -1 : 0;
 }
 
@@ -1681,32 +1681,32 @@ static stock INI_HandleEnd() <>
 	// Clean up - release/clear resources.  Notably any claimed callbacks.
 	if (YSI_g_sCB_issss)
 	{
-		Indirect_Release(YSI_g_sCB_issss),
+		Callback_Restore(YSI_g_sCB_issss),
 		YSI_g_sCB_issss = Func:0<issss>;
 	}
 	else if (YSI_g_sCB_isss)
 	{
-		Indirect_Release(YSI_g_sCB_isss),
+		Callback_Restore(YSI_g_sCB_isss),
 		YSI_g_sCB_isss = Func:0<isss>;
 	}
 	else if (YSI_g_sCB_iss)
 	{
-		Indirect_Release(YSI_g_sCB_iss),
+		Callback_Restore(YSI_g_sCB_iss),
 		YSI_g_sCB_iss = Func:0<iss>;
 	}
 	else if (YSI_g_sCB_ssss)
 	{
-		Indirect_Release(YSI_g_sCB_ssss),
+		Callback_Restore(YSI_g_sCB_ssss),
 		YSI_g_sCB_ssss = Func:0<ssss>;
 	}
 	else if (YSI_g_sCB_sss)
 	{
-		Indirect_Release(YSI_g_sCB_sss),
+		Callback_Restore(YSI_g_sCB_sss),
 		YSI_g_sCB_sss = Func:0<sss>;
 	}
 	else if (YSI_g_sCB_ss)
 	{
-		Indirect_Release(YSI_g_sCB_ss),
+		Callback_Restore(YSI_g_sCB_ss),
 		YSI_g_sCB_ss = Func:0<ss>;
 	}
 }
