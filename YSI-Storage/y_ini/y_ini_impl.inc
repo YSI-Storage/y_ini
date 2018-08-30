@@ -1303,6 +1303,7 @@ static stock INI_ReadFile(File:fhnd, parent[32], bool:handle = true)
 					// Do local and parent values.
 					INI_ReadFile(fhnd, parent),
 					fseek(fhnd, pos, seek_start);
+					parent[0] = '\0';
 				}
 				handle = true;
 			}
